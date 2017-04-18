@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "additionalProperties": {
+    "type": "object",
+    "properties": {
+      "repository": { "type": "string" },
+      "pull-requests": {"type": "boolean"},
+      "closed": {"type": "boolean"},
+      "pipeline-id-format": { "type": "string" }
+    },
+    "required": [
+      "repository"
+    ]
+  }
+}
