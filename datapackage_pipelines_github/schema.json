@@ -5,9 +5,46 @@
     "type": "object",
     "properties": {
       "repository": { "type": "string" },
-      "pull-requests": {"type": "boolean"},
-      "closed": {"type": "boolean"},
-      "pipeline-id-format": { "type": "string" }
+      "base-path": { "type": "string" },
+      "issues": {
+        "type": "object",
+        "properties": {
+          "closed": {"type": "boolean"},
+          "pipeline-id-format": { "type": "string" }
+        }
+      },
+      "pull-requests": {
+        "type": "object",
+        "properties": {
+          "local": {
+            "type": "object",
+            "properties": {
+              "specs": { "type": "boolean" },
+              "code": { "type": "boolean" },
+              "disallow-processors": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "remote": {
+            "type": "object",
+            "properties": {
+              "specs": { "type": "boolean" },
+              "code": { "type": "boolean" },
+              "disallow-processors": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "pipeline-id-format": { "type": "string" }
+        }
+      }
     },
     "required": [
       "repository"

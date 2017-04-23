@@ -24,6 +24,7 @@ INSTALL_REQUIRES = [
     'six>=1.9',
     'datapackage-pipelines',
     'requests',
+    'PyYAML'
 ]
 LINT_REQUIRES = [
     'pylint',
