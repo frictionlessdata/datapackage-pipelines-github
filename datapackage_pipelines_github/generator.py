@@ -47,7 +47,6 @@ class CachedGetter(object):
         if url in self.cache:
             ret, timestamp = self.cache[url]
             if time.time() - timestamp > self.ttl:
-                self.cache[url] = (ret, time.time())
                 return ret
             else:
                 del self.cache[url]
