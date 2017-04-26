@@ -6,6 +6,8 @@ import urllib.parse
 import copy
 import re
 import logging
+import tarfile
+import shutil
 from posixpath import join as urljoin
 
 import requests
@@ -123,8 +125,6 @@ class Generator(GeneratorBase):
                     pipeline_spec = URL_GETTER.get('/repos/{}/contents/{}'.format(head, fullpath),
                                                    {'ref': head_ref})
                     pipeline_spec = codecs.decode(pipeline_spec['content'].encode('ascii'), 'base64').decode('utf8')
-                    # import pprint
-                    # pprint.pprint(pipeline_spec)
                     pipeline_spec = yaml.load(pipeline_spec)
                     processors = {}
 
@@ -160,7 +160,7 @@ class Generator(GeneratorBase):
                             pipeline_steps.append(step)
                         pipeline_details['pipeline'] = pipeline_steps
                         yield urljoin(rebased_dirname, pipeline_id_format), \
-                              pipeline_steps
+                            pipeline_steps
 
     @classmethod
     def handle_combined_issue(cls, repository, base_path, issue, issue_policy, pr_policy):
@@ -185,6 +185,77 @@ class Generator(GeneratorBase):
 
             yield from cls.handle_issue(issue, issue_policy)
 
+    @classmethod
+    def fetch_code(cls, policy, repository, base):
+        code_path = '.github.code.{}'.format(repository.replace('/', '.'))
+        os.makedirs(code_path, exist_ok=True)
+
+        # Get local code's ETag
+        hashfile = os.path.join(code_path, 'etag')
+        on_disk_hash = None
+        if os.path.exists(hashfile):
+            with open(hashfile, 'r') as on_disk_hash_file:
+                on_disk_hash = on_disk_hash_file.read()
+
+        # Get remote code's ETag
+        etag = None
+        check_etag_resp = requests.head('https://api.github.com/repos/{}/tarball'.format(repository), allow_redirects=True)
+        if check_etag_resp.status_code == 200:
+            etag = check_etag_resp.headers['ETag']
+
+        clone_path = os.path.join(code_path, 'clone')
+        os.makedirs(clone_path, exist_ok=True)
+
+        # Update files if needed
+        if etag is not None and etag != on_disk_hash:
+            # Check for existing files
+            existing_files = set()
+            for dirpath, dirnames, filenames in os.walk(clone_path):
+                for filename in filenames:
+                    existing_files.add(os.path.join(dirpath, filename))
+
+            ref = policy.get('ref', 'master')
+            tarball_resp = requests.get('https://api.github.com/repos/{}/tarball/{}'.format(repository, ref),
+                                        allow_redirects=True, stream=True)
+            tarball = tarfile.open(fileobj=tarball_resp.raw, mode='r|gz')
+
+            while True:
+                member = tarball.next()
+                if member is None:
+                    break
+                if not member.isfile():
+                    continue
+                name = member.name
+                name = '/'.join(name.split('/')[1:])  # Remove first part of path
+                if name.startswith(base):
+                    name = name[len(base):].lstrip('/')
+                    fullpath = os.path.join(clone_path, name)
+                    os.makedirs(os.path.dirname(fullpath), exist_ok=True)
+
+                    with open(fullpath, 'wb') as outfile:
+                        shutil.copyfileobj(tarball.extractfile(member), outfile)
+                    if fullpath in existing_files:
+                        existing_files.remove(fullpath)
+
+            # Delete obsolete files
+            for to_delete in existing_files:
+                os.unlink(to_delete)
+
+            # Save ETag for future checks
+            with open(hashfile, 'w') as on_disk_hash_file:
+                on_disk_hash_file.write(etag)
+
+        for dirpath, dirnames, filenames in os.walk(clone_path):
+            for filename in filenames:
+                fullpath = os.path.join(dirpath, filename)
+                basepath = dirpath[len(clone_path):].lstrip('/')
+                if filename == 'pipeline-spec.yaml':
+                    with open(fullpath) as pipeline_spec_file:
+                        pipeline_spec = yaml.load(pipeline_spec_file)
+                        for pipeline_id, pipeline_details in pipeline_spec.items():
+                            pipeline_details['__path'] = dirpath
+                            yield os.path.join(basepath, 'gh-'+pipeline_id), pipeline_details
+
 
     @classmethod
     def generate_pipeline(cls, source):
@@ -197,6 +268,12 @@ class Generator(GeneratorBase):
 
             # pull requests
             pr_policy = defs.get('pull-requests')
+
+            # code
+            code_policy = defs.get('code')
+
+            if code_policy is not None:
+                yield from cls.fetch_code(code_policy, repository, base_path)
 
             issues_url = '/repos/{}/issues'.format(repository)
             issues = URL_GETTER.get(issues_url)

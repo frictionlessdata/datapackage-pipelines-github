@@ -6,6 +6,12 @@
     "properties": {
       "repository": { "type": "string" },
       "base-path": { "type": "string" },
+      "code": {
+        "type": "object",
+        "properties": {
+          "ref": {"type": "string"}
+        }
+      },
       "issues": {
         "type": "object",
         "properties": {

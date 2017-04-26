@@ -1,6 +1,7 @@
 # datapackage-pipelines-github
 
 Extension for `datapackage-pipelines` for pulling stuff from GitHub.
+- **Pipelines and Processor Code** from a specific branch will be pulled 
 - **Issues** will be presented, using their title and description, as 'unable to start' pipelines.
 - **Pull Requests** will be shown and executed, based on a predefined policies defining:
   - Should pipeline specs be pulled from PRs
@@ -20,6 +21,8 @@ Each one should be of the form:
 <pipeline-id-prefix>:
     repository: <owner/repo>
     base-path: <where to look for pipelines and code. default is 'pipelines/'>
+    code: <if not present, won't fetch code. set to {} to use the defaults>
+      ref: <which branch/commit to use to get code from. default is 'master>
     issues: <if not present, won't fetch issues. set to {} to use the defaults>
       closed: <boolean, should fetch closed issues? default is no>
       pipeline-id-format: <string, see below>    
@@ -48,6 +51,8 @@ The default format for pull-requests is "pr/{pr-id:03}_{title-slug}"
 ```yaml
 dpp-github:
     repository: firctionlessdata/datapackage-pipelines-github
+    code:
+      ref: master
     pull-requests:
       local:
         specs: yes
